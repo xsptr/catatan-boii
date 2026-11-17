@@ -6,7 +6,7 @@ Aplikasi web statis untuk catatan harian si kecil. Form berisi delapan isian beb
 
 1. Buka Firebase Console, pilih proyek khusus untuk Hari Kecil, lalu daftarkan aplikasi Web di **Project settings → Your apps**.
 2. Buka **Authentication → Sign-in method**, aktifkan **Anonymous**, lalu simpan.
-3. Buat **Realtime Database** dalam mode terkunci. Di tab **Rules**, terapkan isi `database.rules.json`, lalu klik **Publish**. Jika proyek sudah memiliki aturan, gabungkan bagian `hariKecil` ke objek `rules` yang ada. Pastikan aturan pada tingkat di atasnya tidak memberi akses baca atau tulis secara umum.
+3. Buat **Realtime Database** dalam mode terkunci. Di tab **Rules**, terapkan isi `database.rules.json`, lalu klik **Publish**. Jika proyek sudah memiliki aturan, gabungkan bagian `hariKecil` dan `hariKecilBersama` ke objek `rules` yang ada. Pastikan aturan pada tingkat di atasnya tidak memberi akses baca atau tulis secara umum.
 4. Buka `firebase-config.js`. Ganti `null` dengan objek konfigurasi aplikasi Web dari Firebase. Sertakan `databaseURL` yang disalin dari halaman Realtime Database. Contoh bentuk file:
 
    ```js
@@ -27,6 +27,11 @@ Aplikasi web statis untuk catatan harian si kecil. Form berisi delapan isian beb
 2. Buka alamat HTTPS direktori tersebut, misalnya `https://domain-anda.id/hari-kecil/`. Aplikasi dapat dilayani sebagai file statis dan memuat SDK Firebase melalui internet.
 3. Tunggu status **Firebase terhubung**. Buat satu catatan uji, muat ulang halaman, lalu periksa filter tanggal serta tombol **Edit** dan **Hapus**.
 
-## Akses catatan
+## Membuka jurnal yang sama dari beberapa perangkat
 
-Aplikasi membuat sesi Firebase anonim secara otomatis. Setiap profil browser mendapat identitasnya sendiri. Catatan tersimpan di Firebase, tetapi aksesnya bergantung pada sesi dari profil browser yang membuatnya. Membuka aplikasi dari browser lain, mengganti domain, memakai mode privat, atau menghapus data situs dapat membuat aplikasi menggunakan identitas baru.
+1. Isi `firebase-config.js` di server satu kali. Unggah file aplikasi dan aturan versi ini. Jika aplikasi sudah dipasang, pertahankan isi konfigurasi Firebase yang sudah dipakai dan terapkan aturan baru dari `database.rules.json`.
+2. Buka aplikasi pada perangkat utama. Pilih **Buat tautan pribadi**. Catatan yang sudah ada di browser ini akan disalin ke jurnal bersama.
+3. Salin tautan yang ditampilkan dan buka di perangkat lain. Setelah itu, perangkat tersebut bisa kembali menggunakan alamat web biasa selama data situsnya masih tersimpan. Simpan tautan agar akses bisa dipulihkan saat berganti browser atau setelah data situs dihapus.
+4. Coba tambah atau edit satu catatan uji, lalu periksa perubahan tersebut di perangkat lain.
+
+Siapa pun yang memegang tautan pribadi dapat membaca, mengedit, dan menghapus catatan jurnal tersebut. Bagikan hanya kepada orang yang Anda percayai. Tautan berisi kunci acak yang berbeda untuk tiap jurnal. Jurnal menggunakan proyek Firebase dan Realtime Database yang sama di semua perangkat.

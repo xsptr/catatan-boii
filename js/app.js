@@ -63,6 +63,10 @@ let stopConnection;
 let entryBase = null;
 let shownDate = today();
 let working = false;
+let sharedKey = '';
+let sharedStorageKey = '';
+const sharedHashPrefix = '#jurnal=';
+const validSharedKey = (key) => /^[a-f0-9]{64}$/.test(key);
 let toastTimer;
 
 function make(tag, content, className) {
@@ -93,6 +97,7 @@ function refreshFormStatus() {
   const submit = id('entry-form').querySelector('button[type=submit]');
   submit.disabled = working || !loaded || !online;
   id('entry-submit-label').textContent = working ? 'Menyimpan…' : entryBase ? 'Simpan perubahan' : 'Simpan catatan';
+  id('share-action').disabled = working || !loaded || !online;
 }
 
 function entryValues() {
@@ -247,13 +252,13 @@ function refreshConnection() {
   id('connection-title').textContent = !auth ? 'Hubungkan Firebase' :
     loadError || sessionError ? 'Firebase perlu diperiksa' : online && loaded ? 'Firebase terhubung' : 'Menghubungkan Firebase…';
   id('connection-copy').textContent = !auth ? 'Siapkan database untuk mulai menyimpan catatan.' :
-    loadError || sessionError || (!online || !loaded ? 'Menyiapkan jurnal di browser ini.' : 'Jurnal siap digunakan di browser ini.');
+    loadError || sessionError || (!online || !loaded ? 'Menyiapkan jurnal…' : sharedKey ? 'Jurnal bersama siap digunakan.' : 'Jurnal siap digunakan di browser ini.');
   id('retry-session').hidden = !sessionError;
 }
 
 function firebaseError(error) {
   const code = error?.code || '';
-  if (code.toLowerCase().includes('permission_denied')) return 'Akses database ditolak. Periksa aturan pada node hariKecil.';
+  if (code.toLowerCase().includes('permission_denied')) return 'Akses database ditolak. Terapkan aturan dari database.rules.json.';
   return {
     'auth/operation-not-allowed': 'Aktifkan Anonymous di Firebase Authentication.',
     'auth/admin-restricted-operation': 'Aktifkan Anonymous di Firebase Authentication.',
@@ -282,6 +287,96 @@ function parseConfig(value) {
   return parsed;
 }
 
+function activeJournalPath() {
+  return sharedKey ? 'hariKecilBersama/' + sharedKey : 'hariKecil/' + account.uid;
+}
+
+function rememberSharedKey(key) {
+  sharedKey = key;
+  try {
+    localStorage.setItem(sharedStorageKey, key);
+  } catch {
+    notify('Simpan tautan pribadi untuk membuka kembali jurnal ini.');
+  }
+}
+
+function acceptJournalLink() {
+  if (!location.hash.startsWith(sharedHashPrefix)) return false;
+  const key = location.hash.slice(sharedHashPrefix.length);
+  if (!sharedStorageKey && validSharedKey(key)) return false;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (!validSharedKey(key)) {
+    notify('Tautan jurnal tidak lengkap.');
+    return false;
+  }
+  if (key === sharedKey) return false;
+  if (working) {
+    notify('Tunggu proses selesai, lalu buka kembali tautan jurnal.');
+    return false;
+  }
+  if (account && !sameRecord(entryValues(), entryBase) && !window.confirm('Buka jurnal dari tautan dan abaikan perubahan yang belum disimpan?')) {
+    return false;
+  }
+  rememberSharedKey(key);
+  if (account) watchJournal(true);
+  return true;
+}
+
+function journalLink() {
+  const url = new URL(location.href);
+  url.search = '';
+  url.hash = sharedHashPrefix + sharedKey;
+  return url.href;
+}
+
+async function shareJournal() {
+  if (sharedKey) {
+    const field = id('share-url');
+    field.value = journalLink();
+    id('share-panel').hidden = false;
+    try {
+      await navigator.clipboard.writeText(field.value);
+      notify('Tautan pribadi disalin.');
+    } catch {
+      field.focus();
+      field.select();
+      notify('Salin tautan dari kolom yang ditampilkan.');
+    }
+    return;
+  }
+
+  if (!loaded || !online || working) return;
+  if (!sameRecord(entryValues(), entryBase)) {
+    notify('Simpan catatan yang sedang diedit sebelum membuat tautan.');
+    return;
+  }
+  working = true;
+  refreshFormStatus();
+  const user = account;
+  try {
+    const key = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    const source = await sdk.get(sdk.ref(database, activeJournalPath()));
+    const destination = sdk.ref(database, 'hariKecilBersama/' + key);
+    if (source.exists()) await sdk.update(destination, source.val());
+    else await sdk.get(destination);
+    if (account !== user) return;
+
+    rememberSharedKey(key);
+    watchJournal(true);
+    const field = id('share-url');
+    field.value = journalLink();
+    id('share-panel').hidden = false;
+    field.focus();
+    field.select();
+    notify('Tautan pribadi siap. Buka di perangkat lain.');
+  } catch (error) {
+    notify(firebaseError(error));
+  } finally {
+    working = false;
+    refreshFormStatus();
+  }
+}
+
 async function connect(firebaseConfig) {
   const cdn = 'https://www.gstatic.com/firebasejs/13.3.0/';
   const [appSdk, authSdk, dbSdk] = await Promise.all([
@@ -298,6 +393,14 @@ async function connect(firebaseConfig) {
     await appSdk.deleteApp(app);
     throw error;
   }
+  sharedStorageKey = 'hari-kecil:jurnal:' + firebaseConfig.projectId + ':' + firebaseConfig.databaseURL;
+  try {
+    const savedKey = localStorage.getItem(sharedStorageKey);
+    if (savedKey && validSharedKey(savedKey)) sharedKey = savedKey;
+  } catch {
+    // The invitation also works as a session-only link if browser storage is blocked.
+  }
+  acceptJournalLink();
   sdk.onAuthStateChanged(auth, (user) => {
     if (user) {
       sessionError = '';
@@ -346,14 +449,34 @@ function changeAccount(user) {
   refreshConnection();
   refreshFormStatus();
   render();
-  if (!user) return;
+  if (!user) {
+    id('shared-journal').hidden = true;
+    return;
+  }
   showConnection(false);
   stopConnection = sdk.onValue(sdk.ref(database, '.info/connected'), (snapshot) => {
     online = snapshot.val() === true;
     refreshFormStatus();
     refreshConnection();
   });
-  stopRecords = sdk.onValue(sdk.ref(database, 'hariKecil/' + user.uid), (snapshot) => {
+  watchJournal();
+}
+
+function watchJournal(discardDraft = false) {
+  stopRecords?.();
+  const path = activeJournalPath();
+  records = {};
+  loaded = false;
+  loadError = '';
+  if (discardDraft || sameRecord(entryValues(), entryBase)) openDate(shownDate);
+  else refreshFormStatus();
+  refreshConnection();
+  render();
+  id('shared-journal').hidden = false;
+  id('share-action').textContent = sharedKey ? 'Salin tautan pribadi' : 'Buat tautan pribadi';
+  id('shared-copy').textContent = sharedKey ? 'Perangkat yang membuka tautan melihat catatan yang sama.' : 'Gunakan jurnal yang sama di beberapa perangkat.';
+  if (sharedKey && !id('share-panel').hidden) id('share-url').value = journalLink();
+  stopRecords = sdk.onValue(sdk.ref(database, path), (snapshot) => {
     const canRefreshForm = sameRecord(entryValues(), entryBase);
     records = snapshot.val() || {};
     loaded = true;
@@ -379,9 +502,8 @@ async function writeRecord(date, original, replacement) {
   }
   working = true;
   refreshFormStatus();
-  const uid = account.uid;
   try {
-    const target = sdk.ref(database, 'hariKecil/' + uid + '/' + date);
+    const target = sdk.ref(database, activeJournalPath() + '/' + date);
     await sdk.get(target);
     const result = await sdk.runTransaction(target, (current) => {
       if (sameRecord(current, original)) return replacement;
@@ -522,7 +644,9 @@ id('setup-form').addEventListener('submit', async (event) => {
     submit.disabled = false;
   }
 });
+id('share-action').addEventListener('click', () => void shareJournal());
 window.addEventListener('hashchange', () => {
+  acceptJournalLink();
   route();
   id(location.hash === '#catat' ? 'entry-title' : 'dashboard-title').focus({preventScroll:true});
   id(location.hash === '#catat' ? 'entry' : 'dashboard-page').scrollIntoView({block:'start'});
@@ -533,7 +657,7 @@ route();
 render();
 
 try {
-  config ||= JSON.parse(localStorage.getItem(configKey) || 'null');
+  if (!config) config = JSON.parse(localStorage.getItem(configKey) || 'null');
   if (config) {
     await connect(config);
     refreshConnection();

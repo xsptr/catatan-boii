@@ -30,7 +30,7 @@
 					<p>Catat makan, tidur, dan keseharian si kecil dalam satu jurnal.</p>
 					<a class="button primary" href="#catat" id="hero-link"><span data-icon="plus"></span>Catat hari ini</a>
 				</div>
-				<div class="hero-art"><img src="img/bear.webp" alt="" /></div>
+				<div class="hero-art"><img src="img/astronaut.webp" alt="" /></div>
 			</section>
 			<section id="connection" class="connection card" aria-label="Koneksi Firebase">
 				<div class="connection-summary">
@@ -64,7 +64,7 @@
 								Buat <strong>Realtime Database</strong> dalam mode terkunci. Tambahkan aturan dari
 								<a href="database.rules.json" download>database.rules.json</a> pada tab <strong>Rules</strong>, lalu
 								klik <strong>Publish</strong>. Jika memakai database yang sudah ada, tambahkan node
-								<code>hariKecil</code> ke aturan yang berlaku.
+								<code>hariKecil</code> dan <code>hariKecilBersama</code> ke aturan yang berlaku.
 							</li>
 							<li>
 								Salin konfigurasi aplikasi Web dari <strong>Project settings</strong> dan pastikan
@@ -84,6 +84,23 @@
 						</form>
 					</div>
 					<p id="connection-message" aria-live="polite"></p>
+				</div>
+			</section>
+			<section class="card connection" id="shared-journal" aria-label="Jurnal bersama" hidden>
+				<div class="connection-summary">
+					<span class="bubble purple" data-icon="book"></span>
+					<div>
+						<strong>Jurnal bersama</strong>
+						<p id="shared-copy">Gunakan jurnal yang sama di beberapa perangkat.</p>
+					</div>
+					<div class="connection-actions">
+						<button class="button outline" type="button" id="share-action">Buat tautan pribadi</button>
+					</div>
+				</div>
+				<div id="share-panel" hidden>
+					<label for="share-url">Tautan pribadi jurnal</label>
+					<input id="share-url" type="text" readonly spellcheck="false" autocomplete="off" />
+					<p>Siapa pun yang memegang tautan ini bisa membaca, mengedit, dan menghapus catatan.</p>
 				</div>
 			</section>
 			<section id="dashboard-page" class="page" aria-labelledby="dashboard-title">

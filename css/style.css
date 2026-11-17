@@ -139,3 +139,41 @@ dialog p{margin-top:6px}dialog::backdrop{background:#25241b70}
   .top-inner nav a{padding-inline:5px}
   .filters{grid-template-columns:minmax(0,1fr)}
 }
+
+#share-panel{padding:0 15px 13px}
+#share-url{display:block;width:100%;margin-top:5px;font-size:16px}
+#share-panel p{margin-top:5px;color:var(--muted);font-size:12px}
+
+/* Banner astronot */
+.hero {
+  background: radial-gradient(ellipse at 79% 44%, #eff9ff 0%, #d9ebfe 54%, #c5dff9 100%);
+  border-color: #bad6f1;
+}
+.hero h1 { color: #173250; }
+.hero h1 em { color: #315a89; }
+.hero p { color: #324d6a; }
+.hero .date-chip {
+  color: #274769;
+  background: #edf6ff;
+}
+.hero .primary {
+  color: #ffffff;
+  background: #224972;
+  border-color: #224972;
+}
+.hero .primary:hover { background: #315b88; }
+.hero-art {
+  right: 2%;
+  width: 45%;
+  mask-image: none;
+  opacity: 1;
+}
+@media (max-width: 490px) {
+  .hero-art {
+    top: 44%;
+    right: 0;
+    bottom: 1%;
+    width: 44%;
+  }
+  .hero p { max-width: 48%; }
+}
