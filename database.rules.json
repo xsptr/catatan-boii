@@ -1,0 +1,40 @@
+{
+  "rules": {
+    "hariKecil": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$date": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "$date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.hasChildren()",
+          "makanUtama": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000"
+          },
+          "snack": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000"
+          },
+          "susu": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000"
+          },
+          "sayurBuah": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000"
+          },
+          "bab": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000"
+          },
+          "tidurSiang": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000"
+          },
+          "tidurMalam": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000"
+          },
+          "keterangan": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 3000"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    }
+  }
+}
