@@ -1,77 +1,163 @@
 <!doctype html>
 <html lang="id">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#fcf9f4">
-<meta name="description" content="Jurnal harian si kecil untuk mencatat makan, tidur, dan rutinitas.">
-<title>Hari Kecil — Jurnal Harian Si Kecil</title>
-<link rel="stylesheet" href="style.css">
-<script type="module" src="app.js"></script>
-</head>
-<body>
-<header class="topbar"><div class="container top-inner">
-  <a class="brand" href="#dashboard"><span class="brand-mark" data-icon="sun"></span><span>Hari Kecil<small>Jurnal harian si kecil</small></span></a>
-  <nav aria-label="Navigasi utama">
-    <a href="#dashboard" id="nav-dashboard"><span data-icon="grid"></span>Dashboard</a>
-    <a href="#catat" id="nav-catat"><span data-icon="pen"></span>Isi catatan</a>
-  </nav>
-</div></header>
-<main class="container">
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="date-chip"><span data-icon="calendar"></span><span id="hero-date"></span></div>
-      <h1>Hari-hari kecil,<br><em>cerita besar.</em></h1>
-      <p>Catat makan, tidur, dan keseharian si kecil dalam satu jurnal.</p>
-      <a class="button primary" href="#catat" id="hero-link"><span data-icon="plus"></span>Catat hari ini</a>
-    </div>
-    <div class="hero-art"><img src="astronaut.webp" alt=""></div>
-  </section>
-  <section id="dashboard-page" class="page" aria-labelledby="dashboard-title">
-    <div class="section-head"><div><h2 id="dashboard-title" tabindex="-1">Dashboard</h2><p>Lihat kembali keseharian si kecil.</p></div></div>
-    <div class="stats">
-      <div class="stat"><span class="bubble peach" data-icon="book"></span><div><span>Total hari tercatat</span><strong id="total">0</strong></div></div>
-      <div class="stat"><span class="bubble green" data-icon="calendar"></span><div><span>Tercatat bulan ini</span><strong id="current-month">0</strong></div></div>
-      <div class="stat"><span class="bubble purple" data-icon="clock"></span><div><span>Catatan terakhir</span><strong id="latest">—</strong></div></div>
-    </div>
-    <div class="dashboard-grid">
-      <section class="card history" aria-labelledby="history-title">
-        <div class="card-head"><div><h3 id="history-title">Riwayat catatan</h3><p id="result-count" aria-live="polite">Semua tanggal</p></div><button type="button" class="button outline" id="filter-toggle" aria-expanded="false" aria-controls="filters"><span data-icon="filter"></span>Filter tanggal</button></div>
-        <form id="filters" class="filters" hidden>
-          <label>Dari tanggal<input type="date" id="date-from"></label>
-          <label>Sampai tanggal<input type="date" id="date-to"></label>
-          <button class="button primary" type="submit">Terapkan</button>
-          <button class="button outline" id="reset-filter" type="button">Reset</button>
-        </form>
-        <div id="active-filter" class="active-filter" hidden><span id="active-label"></span><button class="icon-button" type="button" id="clear-filter" aria-label="Hapus filter tanggal" data-icon="x"></button></div>
-        <div id="records"></div>
-      </section>
-      <aside class="card calendar" aria-labelledby="calendar-title">
-        <div class="card-head"><div><h3 id="calendar-title">Kalender</h3><p>Pilih tanggal untuk melihat catatan.</p></div></div>
-        <div class="calendar-body">
-          <div class="calendar-controls"><button type="button" class="icon-button" id="prev-month" aria-label="Bulan sebelumnya" data-icon="left"></button><strong id="calendar-month" aria-live="polite"></strong><button type="button" class="icon-button" id="next-month" aria-label="Bulan berikutnya" data-icon="right"></button></div>
-          <div class="weekdays" aria-hidden="true"><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span></div>
-          <div id="calendar-days" class="calendar-days"></div>
-          <div class="calendar-legend"><span></span> Ada catatan</div>
-        </div>
-      </aside>
-    </div>
-  </section>
-  <section id="entry" class="page" aria-labelledby="entry-title" hidden>
-    <div class="section-head"><div><h2 id="entry-title" tabindex="-1">Isi catatan harian</h2><p>Isi bagian mana saja yang ingin dicatat.</p></div><a class="button outline" href="#dashboard"><span data-icon="left"></span>Ke dashboard</a></div>
-    <form id="entry-form">
-      <div class="card date-card">
-        <span class="bubble green" data-icon="calendar"></span>
-        <label>Tanggal catatan<input id="entry-date" name="date" type="date" required></label>
-        <span id="entry-date-status"></span>
-      </div>
-      <div id="entry-fields" class="entry-fields"></div>
-      <div class="form-actions"><a class="button outline" href="#dashboard">Kembali</a><button class="button primary" type="submit"><span data-icon="check"></span><span id="entry-submit-label">Simpan catatan</span></button></div>
-    </form>
-  </section>
-  <footer><span data-icon="sun"></span> Hari Kecil</footer>
-</main>
-<div id="toast" class="toast" role="status" hidden></div>
-<dialog id="delete-dialog"><form method="dialog"><h3>Hapus catatan?</h3><p id="delete-copy"></p><div class="form-actions"><button class="button outline" value="cancel" autofocus>Batal</button><button class="button danger" value="delete">Hapus</button></div></form></dialog>
-</body>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<meta name="theme-color" content="#fcf9f4" />
+		<meta name="description" content="Jurnal harian si kecil untuk mencatat makan, tidur, dan rutinitas." />
+		<title>Hari Kecil — Jurnal Harian Si Kecil</title>
+		<link rel="stylesheet" href="css/style.css" />
+		<script type="module" src="js/app.js"></script>
+	</head>
+	<body>
+		<header class="topbar">
+			<div class="container top-inner">
+				<a class="brand" href="#dashboard"
+					><span class="brand-mark" data-icon="sun"></span
+					><span>Hari Kecil<small>Jurnal harian si kecil</small></span></a
+				>
+				<nav aria-label="Navigasi utama">
+					<a href="#dashboard" id="nav-dashboard"><span data-icon="grid"></span>Dashboard</a>
+					<a href="#catat" id="nav-catat"><span data-icon="pen"></span>Isi catatan</a>
+				</nav>
+			</div>
+		</header>
+		<main class="container">
+			<section class="hero">
+				<div class="hero-copy">
+					<div class="date-chip"><span data-icon="calendar"></span><span id="hero-date"></span></div>
+					<h1>Hari-hari kecil,<br /><em>cerita besar.</em></h1>
+					<p>Catat makan, tidur, dan keseharian si kecil dalam satu jurnal.</p>
+					<a class="button primary" href="#catat" id="hero-link"><span data-icon="plus"></span>Catat hari ini</a>
+				</div>
+				<div class="hero-art"><img src="img/astronaut.webp" alt="" /></div>
+			</section>
+			<section id="dashboard-page" class="page" aria-labelledby="dashboard-title">
+				<div class="section-head">
+					<div>
+						<h2 id="dashboard-title" tabindex="-1">Dashboard</h2>
+						<p>Lihat kembali keseharian si kecil.</p>
+					</div>
+				</div>
+				<div class="stats">
+					<div class="stat">
+						<span class="bubble peach" data-icon="book"></span>
+						<div><span>Total hari tercatat</span><strong id="total">0</strong></div>
+					</div>
+					<div class="stat">
+						<span class="bubble green" data-icon="calendar"></span>
+						<div><span>Tercatat bulan ini</span><strong id="current-month">0</strong></div>
+					</div>
+					<div class="stat">
+						<span class="bubble purple" data-icon="clock"></span>
+						<div><span>Catatan terakhir</span><strong id="latest">—</strong></div>
+					</div>
+				</div>
+				<div class="dashboard-grid">
+					<section class="card history" aria-labelledby="history-title">
+						<div class="card-head">
+							<div>
+								<h3 id="history-title">Riwayat catatan</h3>
+								<p id="result-count" aria-live="polite">Semua tanggal</p>
+							</div>
+							<button
+								type="button"
+								class="button outline"
+								id="filter-toggle"
+								aria-expanded="false"
+								aria-controls="filters"
+							>
+								<span data-icon="filter"></span>Filter tanggal
+							</button>
+						</div>
+						<form id="filters" class="filters" hidden>
+							<label>Dari tanggal<input type="date" id="date-from" /></label>
+							<label>Sampai tanggal<input type="date" id="date-to" /></label>
+							<button class="button primary" type="submit">Terapkan</button>
+							<button class="button outline" id="reset-filter" type="button">Reset</button>
+						</form>
+						<div id="active-filter" class="active-filter" hidden>
+							<span id="active-label"></span
+							><button
+								class="icon-button"
+								type="button"
+								id="clear-filter"
+								aria-label="Hapus filter tanggal"
+								data-icon="x"
+							></button>
+						</div>
+						<div id="records"></div>
+					</section>
+					<aside class="card calendar" aria-labelledby="calendar-title">
+						<div class="card-head">
+							<div>
+								<h3 id="calendar-title">Kalender</h3>
+								<p>Pilih tanggal untuk melihat catatan.</p>
+							</div>
+						</div>
+						<div class="calendar-body">
+							<div class="calendar-controls">
+								<button
+									type="button"
+									class="icon-button"
+									id="prev-month"
+									aria-label="Bulan sebelumnya"
+									data-icon="left"
+								></button
+								><strong id="calendar-month" aria-live="polite"></strong
+								><button
+									type="button"
+									class="icon-button"
+									id="next-month"
+									aria-label="Bulan berikutnya"
+									data-icon="right"
+								></button>
+							</div>
+							<div class="weekdays" aria-hidden="true">
+								<span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span
+								><span>Min</span>
+							</div>
+							<div id="calendar-days" class="calendar-days"></div>
+							<div class="calendar-legend"><span></span> Ada catatan</div>
+						</div>
+					</aside>
+				</div>
+			</section>
+			<section id="entry" class="page" aria-labelledby="entry-title" hidden>
+				<div class="section-head">
+					<div>
+						<h2 id="entry-title" tabindex="-1">Isi catatan harian</h2>
+						<p>Isi bagian mana saja yang ingin dicatat.</p>
+					</div>
+					<a class="button outline" href="#dashboard"><span data-icon="left"></span>Ke dashboard</a>
+				</div>
+				<form id="entry-form">
+					<div class="card date-card">
+						<span class="bubble green" data-icon="calendar"></span>
+						<label>Tanggal catatan<input id="entry-date" name="date" type="date" required /></label>
+						<span id="entry-date-status"></span>
+					</div>
+					<div id="entry-fields" class="entry-fields"></div>
+					<div class="form-actions">
+						<a class="button outline" href="#dashboard">Kembali</a
+						><button class="button primary" type="submit">
+							<span data-icon="check"></span><span id="entry-submit-label">Simpan catatan</span>
+						</button>
+					</div>
+				</form>
+			</section>
+			<footer><span data-icon="sun"></span> Hari Kecil</footer>
+		</main>
+		<div id="toast" class="toast" role="status" hidden></div>
+		<dialog id="delete-dialog">
+			<form method="dialog">
+				<h3>Hapus catatan?</h3>
+				<p id="delete-copy"></p>
+				<div class="form-actions">
+					<button class="button outline" value="cancel" autofocus>Batal</button
+					><button class="button danger" value="delete">Hapus</button>
+				</div>
+			</form>
+		</dialog>
+	</body>
 </html>
