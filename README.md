@@ -1,13 +1,13 @@
 # Hari Kecil
 
-Aplikasi web statis untuk catatan harian si kecil. Form berisi delapan isian bebas. Dashboard menampilkan riwayat, kalender, filter tanggal, dan tombol Edit serta Hapus.
+Aplikasi web statis untuk catatan harian. Semua perangkat yang membuka situs menggunakan Firebase Realtime Database yang sama. Riwayat dibaca dari `/hariKecil/catatan`, dan satu catatan disimpan per tanggal pada `/hariKecil/catatan/YYYY-MM-DD`.
 
-## 1. Siapkan Firebase
+## Konfigurasi dan pemasangan
 
-1. Buka Firebase Console, pilih proyek khusus untuk Hari Kecil, lalu daftarkan aplikasi Web di **Project settings → Your apps**.
-2. Buka **Authentication → Sign-in method**, aktifkan **Anonymous**, lalu simpan.
-3. Buat **Realtime Database** dalam mode terkunci. Di tab **Rules**, terapkan isi `database.rules.json`, lalu klik **Publish**. Jika proyek sudah memiliki aturan, gabungkan bagian `hariKecil` dan `hariKecilBersama` ke objek `rules` yang ada. Pastikan aturan pada tingkat di atasnya tidak memberi akses baca atau tulis secara umum.
-4. Buka `firebase-config.js`. Ganti `null` dengan objek konfigurasi aplikasi Web dari Firebase. Sertakan `databaseURL` yang disalin dari halaman Realtime Database. Contoh bentuk file:
+1. Buka Firebase Console dan pilih proyek yang akan dipakai. Pastikan aplikasi Web sudah terdaftar di **Project settings → Your apps**.
+2. Aktifkan **Authentication → Sign-in method → Anonymous**. Sesi ini dibuat otomatis ketika situs dibuka.
+3. Di **Realtime Database → Rules**, terapkan `database.rules.json` lalu klik **Publish**. Jika database juga dipakai aplikasi lain, gabungkan properti `catatan` di bawah `rules.hariKecil` dengan aturan yang sudah ada. Periksa izin di tingkat induk karena izin induk juga berlaku pada node di bawahnya.
+4. Isi `firebase-config.js` di server satu kali. Jika file tersebut sudah terisi, gunakan konfigurasi yang sudah ada. Sertakan `databaseURL` dari halaman Realtime Database.
 
    ```js
    export default {
@@ -19,19 +19,15 @@ Aplikasi web statis untuk catatan harian si kecil. Form berisi delapan isian beb
    };
    ```
 
-   Gunakan nilai proyek yang sebenarnya. Anda juga bisa mengisi konfigurasi lewat menu **Pengaturan** di aplikasi. Konfigurasi dari menu tersebut tersimpan pada profil browser yang mengisinya.
+5. Unggah isi folder `Hari-Kecil` ke direktori web yang sama. Buka alamat HTTPS situs dari dua perangkat. Buat atau edit catatan uji di satu perangkat dan periksa perangkat kedua.
 
-## 2. Unggah ke server
+Semua pengunjung dapat membaca, menambah, mengedit, dan menghapus catatan. Aturan memungkinkan sesi Firebase anonim dari proyek yang sama, termasuk sesi yang dibuat oleh klien lain. Domain situs sendiri tidak membatasi akses ke catatan.
 
-1. Ekstrak ZIP, lalu unggah isi folder `Hari-Kecil` ke direktori yang akan dilayani server. Contoh lokasi adalah `public_html/hari-kecil/`. Letakkan semua file aplikasi pada direktori yang sama.
-2. Buka alamat HTTPS direktori tersebut, misalnya `https://domain-anda.id/hari-kecil/`. Aplikasi dapat dilayani sebagai file statis dan memuat SDK Firebase melalui internet.
-3. Tunggu status **Firebase terhubung**. Buat satu catatan uji, muat ulang halaman, lalu periksa filter tanggal serta tombol **Edit** dan **Hapus**.
+## Memindahkan catatan dari versi sebelumnya
 
-## Membuka jurnal yang sama dari beberapa perangkat
+Jika sudah ada data pada `/hariKecil/<UID>` atau `/hariKecilBersama/<key>`, salin catatan yang ingin dipakai ke `/hariKecil/catatan`.
 
-1. Isi `firebase-config.js` di server satu kali. Unggah file aplikasi dan aturan versi ini. Jika aplikasi sudah dipasang, pertahankan isi konfigurasi Firebase yang sudah dipakai dan terapkan aturan baru dari `database.rules.json`.
-2. Buka aplikasi pada perangkat utama. Pilih **Buat tautan pribadi**. Catatan yang sudah ada di browser ini akan disalin ke jurnal bersama.
-3. Salin tautan yang ditampilkan dan buka di perangkat lain. Setelah itu, perangkat tersebut bisa kembali menggunakan alamat web biasa selama data situsnya masih tersimpan. Simpan tautan agar akses bisa dipulihkan saat berganti browser atau setelah data situs dihapus.
-4. Coba tambah atau edit satu catatan uji, lalu periksa perubahan tersebut di perangkat lain.
-
-Siapa pun yang memegang tautan pribadi dapat membaca, mengedit, dan menghapus catatan jurnal tersebut. Bagikan hanya kepada orang yang Anda percayai. Tautan berisi kunci acak yang berbeda untuk tiap jurnal. Jurnal menggunakan proyek Firebase dan Realtime Database yang sama di semua perangkat.
+1. Di tab **Data** pada Firebase Console, pilih node lama yang langsung berisi tanggal seperti `2026-11-17`, lalu pilih **Export JSON**.
+2. Jika `/hariKecil/catatan` kosong, impor objek bertanggal itu di lokasi tersebut. Bila folder `catatan` belum tersedia, impor objek `{ "catatan": { ... } }` pada node `hariKecil` hanya jika node itu belum berisi data. Untuk node `hariKecil` yang sudah berisi data, buat atau tambahkan catatan satu per satu di lokasi tujuan.
+3. Jika tujuan sudah berisi catatan, periksa tanggal yang sama dan gabungkan catatannya sebelum mengimpor. **Import JSON dapat mengganti isi node tujuan.**
+4. Buka dashboard dari dua perangkat untuk memastikan tanggal dan isi catatan sudah sesuai.

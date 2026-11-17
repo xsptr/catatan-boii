@@ -13,7 +13,6 @@ const icons = {
   left: '<path d="m15 6-6 6 6 6"/>',
   right: '<path d="m9 6 6 6-6 6"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
-  lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v3"/>',
   meal: '<path d="M3 12h18a9 9 0 0 1-18 0Zm6 9h6M8 8c-2-2 2-2 0-5m4 5c-2-2 2-2 0-5m4 5c-2-2 2-2 0-5"/>',
   snack: '<path d="M9 4a8 8 0 1 0 11 10 4 4 0 0 1-4-4 4 4 0 0 1-4-5L9 4Zm-2 8h.01M11 9h.01M10 16h.01m5 1h.01"/>',
   milk: '<path d="M8 7V4h8v3l3 4v9H5v-9l3-4Zm0 0h8M5 12h14"/>',
@@ -34,7 +33,7 @@ const fields = [
   ['keterangan', 'Keterangan', 'note', 'green', 'Contoh: Hari ini mencoba makan sendiri.']
 ];
 
-const configKey = 'hari-kecil:firebase-config:v1';
+const journalPath = 'hariKecil/catatan';
 const id = (name) => document.getElementById(name);
 const pad = (value) => String(value).padStart(2, '0');
 const localDate = (date) => [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join('-');
@@ -51,22 +50,11 @@ let records = {};
 let loaded = false;
 let loadError = '';
 let online = false;
-let config = bundledConfig;
 let sdk;
-let auth;
 let database;
-let account;
-let startingSession = false;
-let sessionError = '';
-let stopRecords;
-let stopConnection;
 let entryBase = null;
 let shownDate = today();
 let working = false;
-let sharedKey = '';
-let sharedStorageKey = '';
-const sharedHashPrefix = '#jurnal=';
-const validSharedKey = (key) => /^[a-f0-9]{64}$/.test(key);
 let toastTimer;
 
 function make(tag, content, className) {
@@ -84,20 +72,13 @@ function notify(message) {
   toastTimer = setTimeout(() => { toast.hidden = true; }, 4500);
 }
 
-function connectionMessage(message, error = false) {
-  id('connection-message').textContent = message;
-  id('connection-message').classList.toggle('error', error);
-}
-
 function refreshFormStatus() {
-  id('entry-date-status').textContent = !auth ? 'Hubungkan Firebase untuk menyimpan.' :
-    !account ? (sessionError || 'Menyiapkan jurnal…') :
-    !loaded ? 'Menunggu data Firebase.' :
-    entryBase ? 'Mengedit catatan untuk tanggal ini.' : 'Catatan baru.';
+  id('entry-date-status').textContent = loadError ||
+    (!loaded ? 'Memuat catatan…' : !online ? 'Koneksi terputus. Menunggu tersambung kembali.' :
+      entryBase ? 'Mengedit catatan untuk tanggal ini.' : 'Catatan baru.');
   const submit = id('entry-form').querySelector('button[type=submit]');
   submit.disabled = working || !loaded || !online;
   id('entry-submit-label').textContent = working ? 'Menyimpan…' : entryBase ? 'Simpan perubahan' : 'Simpan catatan';
-  id('share-action').disabled = working || !loaded || !online;
 }
 
 function entryValues() {
@@ -227,7 +208,7 @@ function render() {
     const bubble = make('span', '', 'bubble yellow');
     bubble.innerHTML = icon('book');
     const title = !loaded ? 'Riwayat catatan si kecil' : filtered ? 'Belum ada catatan di tanggal ini' : 'Belum ada catatan';
-    const copy = loadError || sessionError || (!loaded ? (auth ? 'Menyiapkan riwayat dari Firebase…' : 'Hubungkan Firebase untuk melihat catatan.') :
+    const copy = loadError || (!loaded ? 'Memuat riwayat catatan…' :
       filtered ? 'Pilih tanggal lain atau tambahkan catatan.' : 'Mulai dengan mencatat satu hal dari hari ini.');
     empty.append(bubble, make('h4', title), make('p', copy));
     if (loaded) {
@@ -242,20 +223,6 @@ function render() {
   calendarRender();
 }
 
-function showConnection(expanded) {
-  id('setup-panel').hidden = !expanded;
-  id('connection-panel').hidden = !expanded;
-  id('connection-action').setAttribute('aria-expanded', String(expanded));
-}
-
-function refreshConnection() {
-  id('connection-title').textContent = !auth ? 'Hubungkan Firebase' :
-    loadError || sessionError ? 'Firebase perlu diperiksa' : online && loaded ? 'Firebase terhubung' : 'Menghubungkan Firebase…';
-  id('connection-copy').textContent = !auth ? 'Siapkan database untuk mulai menyimpan catatan.' :
-    loadError || sessionError || (!online || !loaded ? 'Menyiapkan jurnal…' : sharedKey ? 'Jurnal bersama siap digunakan.' : 'Jurnal siap digunakan di browser ini.');
-  id('retry-session').hidden = !sessionError;
-}
-
 function firebaseError(error) {
   const code = error?.code || '';
   if (code.toLowerCase().includes('permission_denied')) return 'Akses database ditolak. Terapkan aturan dari database.rules.json.';
@@ -268,115 +235,6 @@ function firebaseError(error) {
   }[code] || 'Firebase belum dapat memproses permintaan. Periksa konfigurasi dan koneksi.';
 }
 
-function parseConfig(value) {
-  const configFields = ['apiKey', 'authDomain', 'databaseURL', 'projectId', 'appId', 'messagingSenderId'];
-  const parsed = {};
-  for (const key of configFields) {
-    const match = value.match(new RegExp('(?:^|[,{\\s])[\'"]?' + key + '[\'"]?\\s*:\\s*([\'"])(.*?)\\1'));
-    if (match?.[2]) parsed[key] = match[2].trim();
-  }
-  if (!parsed.apiKey || !parsed.projectId || !parsed.databaseURL) {
-    throw new Error('Sertakan apiKey, projectId, dan databaseURL dari proyek Firebase.');
-  }
-  let url;
-  try { url = new URL(parsed.databaseURL); } catch { throw new Error('Format databaseURL tidak valid.'); }
-  if (url.protocol !== 'https:' || url.username || url.password || url.port || url.pathname !== '/' ||
-      url.search || url.hash || !/\.(firebaseio\.com|firebasedatabase\.app)$/.test(url.hostname)) {
-    throw new Error('Gunakan URL HTTPS dari halaman Realtime Database.');
-  }
-  return parsed;
-}
-
-function activeJournalPath() {
-  return sharedKey ? 'hariKecilBersama/' + sharedKey : 'hariKecil/' + account.uid;
-}
-
-function rememberSharedKey(key) {
-  sharedKey = key;
-  try {
-    localStorage.setItem(sharedStorageKey, key);
-  } catch {
-    notify('Simpan tautan pribadi untuk membuka kembali jurnal ini.');
-  }
-}
-
-function acceptJournalLink() {
-  if (!location.hash.startsWith(sharedHashPrefix)) return false;
-  const key = location.hash.slice(sharedHashPrefix.length);
-  if (!sharedStorageKey && validSharedKey(key)) return false;
-  history.replaceState(null, '', location.pathname + location.search);
-  if (!validSharedKey(key)) {
-    notify('Tautan jurnal tidak lengkap.');
-    return false;
-  }
-  if (key === sharedKey) return false;
-  if (working) {
-    notify('Tunggu proses selesai, lalu buka kembali tautan jurnal.');
-    return false;
-  }
-  if (account && !sameRecord(entryValues(), entryBase) && !window.confirm('Buka jurnal dari tautan dan abaikan perubahan yang belum disimpan?')) {
-    return false;
-  }
-  rememberSharedKey(key);
-  if (account) watchJournal(true);
-  return true;
-}
-
-function journalLink() {
-  const url = new URL(location.href);
-  url.search = '';
-  url.hash = sharedHashPrefix + sharedKey;
-  return url.href;
-}
-
-async function shareJournal() {
-  if (sharedKey) {
-    const field = id('share-url');
-    field.value = journalLink();
-    id('share-panel').hidden = false;
-    try {
-      await navigator.clipboard.writeText(field.value);
-      notify('Tautan pribadi disalin.');
-    } catch {
-      field.focus();
-      field.select();
-      notify('Salin tautan dari kolom yang ditampilkan.');
-    }
-    return;
-  }
-
-  if (!loaded || !online || working) return;
-  if (!sameRecord(entryValues(), entryBase)) {
-    notify('Simpan catatan yang sedang diedit sebelum membuat tautan.');
-    return;
-  }
-  working = true;
-  refreshFormStatus();
-  const user = account;
-  try {
-    const key = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join('');
-    const source = await sdk.get(sdk.ref(database, activeJournalPath()));
-    const destination = sdk.ref(database, 'hariKecilBersama/' + key);
-    if (source.exists()) await sdk.update(destination, source.val());
-    else await sdk.get(destination);
-    if (account !== user) return;
-
-    rememberSharedKey(key);
-    watchJournal(true);
-    const field = id('share-url');
-    field.value = journalLink();
-    id('share-panel').hidden = false;
-    field.focus();
-    field.select();
-    notify('Tautan pribadi siap. Buka di perangkat lain.');
-  } catch (error) {
-    notify(firebaseError(error));
-  } finally {
-    working = false;
-    refreshFormStatus();
-  }
-}
-
 async function connect(firebaseConfig) {
   const cdn = 'https://www.gstatic.com/firebasejs/13.3.0/';
   const [appSdk, authSdk, dbSdk] = await Promise.all([
@@ -384,126 +242,49 @@ async function connect(firebaseConfig) {
     import(cdn + 'firebase-auth.js'),
     import(cdn + 'firebase-database.js')
   ]);
-  sdk = {...authSdk, ...dbSdk};
+
+  sdk = dbSdk;
   const app = appSdk.initializeApp(firebaseConfig);
-  try {
-    database = sdk.getDatabase(app);
-    auth = sdk.getAuth(app);
-  } catch (error) {
-    await appSdk.deleteApp(app);
-    throw error;
-  }
-  sharedStorageKey = 'hari-kecil:jurnal:' + firebaseConfig.projectId + ':' + firebaseConfig.databaseURL;
-  try {
-    const savedKey = localStorage.getItem(sharedStorageKey);
-    if (savedKey && validSharedKey(savedKey)) sharedKey = savedKey;
-  } catch {
-    // The invitation also works as a session-only link if browser storage is blocked.
-  }
-  acceptJournalLink();
-  sdk.onAuthStateChanged(auth, (user) => {
-    if (user) {
-      sessionError = '';
-      changeAccount(user);
-    } else {
-      changeAccount(null);
-      void startAnonymousSession();
-    }
-  }, (error) => {
-    sessionError = firebaseError(error);
-    refreshConnection();
-    refreshFormStatus();
-  });
-}
+  const auth = authSdk.getAuth(app);
+  database = sdk.getDatabase(app);
 
-async function startAnonymousSession() {
-  if (!auth || account || startingSession) return;
-  startingSession = true;
-  sessionError = '';
-  refreshConnection();
-  refreshFormStatus();
-  render();
-  try {
-    await sdk.signInAnonymously(auth);
-  } catch (error) {
-    sessionError = firebaseError(error);
-    refreshConnection();
-    refreshFormStatus();
-    render();
-  } finally {
-    startingSession = false;
-  }
-}
+  await auth.authStateReady();
+  if (!auth.currentUser) await authSdk.signInAnonymously(auth);
 
-function changeAccount(user) {
-  const hadAccount = Boolean(account);
-  stopRecords?.();
-  stopConnection?.();
-  account = user;
-  records = {};
-  loaded = false;
-  loadError = '';
-  online = false;
-  working = false;
-  if (hadAccount) openDate(today());
-  refreshConnection();
-  refreshFormStatus();
-  render();
-  if (!user) {
-    id('shared-journal').hidden = true;
-    return;
-  }
-  showConnection(false);
-  stopConnection = sdk.onValue(sdk.ref(database, '.info/connected'), (snapshot) => {
+  sdk.onValue(sdk.ref(database, '.info/connected'), (snapshot) => {
     online = snapshot.val() === true;
     refreshFormStatus();
-    refreshConnection();
   });
-  watchJournal();
-}
 
-function watchJournal(discardDraft = false) {
-  stopRecords?.();
-  const path = activeJournalPath();
-  records = {};
-  loaded = false;
-  loadError = '';
-  if (discardDraft || sameRecord(entryValues(), entryBase)) openDate(shownDate);
-  else refreshFormStatus();
-  refreshConnection();
-  render();
-  id('shared-journal').hidden = false;
-  id('share-action').textContent = sharedKey ? 'Salin tautan pribadi' : 'Buat tautan pribadi';
-  id('shared-copy').textContent = sharedKey ? 'Perangkat yang membuka tautan melihat catatan yang sama.' : 'Gunakan jurnal yang sama di beberapa perangkat.';
-  if (sharedKey && !id('share-panel').hidden) id('share-url').value = journalLink();
-  stopRecords = sdk.onValue(sdk.ref(database, path), (snapshot) => {
+  sdk.onValue(sdk.ref(database, journalPath), (snapshot) => {
     const canRefreshForm = sameRecord(entryValues(), entryBase);
     records = snapshot.val() || {};
     loaded = true;
     loadError = '';
-    refreshConnection();
+
     if (canRefreshForm) openDate(shownDate);
     else refreshFormStatus();
     render();
-  }, (error) => {
-    records = {};
-    loaded = false;
-    loadError = firebaseError(error);
-    refreshConnection();
-    refreshFormStatus();
-    render();
-  });
+  }, showLoadError);
+}
+
+function showLoadError(error) {
+  records = {};
+  loaded = false;
+  loadError = firebaseError(error);
+  refreshFormStatus();
+  render();
 }
 
 async function writeRecord(date, original, replacement) {
-  if (!account || !loaded || !online || working) {
+  if (!loaded || !online || working) {
     notify('Hubungkan kembali ke Firebase untuk menyimpan perubahan.');
     return false;
   }
   working = true;
   refreshFormStatus();
   try {
-    const target = sdk.ref(database, activeJournalPath() + '/' + date);
+    const target = sdk.ref(database, journalPath + '/' + date);
     await sdk.get(target);
     const result = await sdk.runTransaction(target, (current) => {
       if (sameRecord(current, original)) return replacement;
@@ -549,7 +330,6 @@ for (const [key, label, symbol, tone, example] of fields) {
   id('entry-fields').append(field);
 }
 
-id('site-domain').textContent = location.hostname;
 id('hero-date').textContent = formatDate(today(), {weekday:'long', day:'numeric', month:'long', year:'numeric'});
 id('hero-link').addEventListener('click', () => openDate(today()));
 id('filter-toggle').addEventListener('click', () => {
@@ -613,40 +393,7 @@ id('entry-form').addEventListener('submit', async (event) => {
     notify('Catatan tersimpan.');
   }
 });
-id('connection-action').addEventListener('click', () => {
-  connectionMessage('');
-  if (config && !id('firebase-config').value) id('firebase-config').value = JSON.stringify(config, null, 2);
-  showConnection(id('connection-panel').hidden);
-});
-id('retry-session').addEventListener('click', () => void startAnonymousSession());
-id('setup-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const submit = event.submitter;
-  submit.disabled = true;
-  connectionMessage('Menghubungkan Firebase…');
-  try {
-    const nextConfig = parseConfig(id('firebase-config').value);
-    if (auth) {
-      localStorage.setItem(configKey, JSON.stringify(nextConfig));
-      location.reload();
-      return;
-    }
-    await connect(nextConfig);
-    config = nextConfig;
-    refreshConnection();
-    showConnection(false);
-    try { localStorage.setItem(configKey, JSON.stringify(config)); }
-    catch { notify('Konfigurasi berlaku selama halaman ini terbuka.'); return; }
-    connectionMessage('');
-  } catch (error) {
-    connectionMessage(error.code ? firebaseError(error) : (error instanceof TypeError ? 'SDK Firebase gagal dimuat. Periksa koneksi internet.' : error.message), true);
-  } finally {
-    submit.disabled = false;
-  }
-});
-id('share-action').addEventListener('click', () => void shareJournal());
 window.addEventListener('hashchange', () => {
-  acceptJournalLink();
   route();
   id(location.hash === '#catat' ? 'entry-title' : 'dashboard-title').focus({preventScroll:true});
   id(location.hash === '#catat' ? 'entry' : 'dashboard-page').scrollIntoView({block:'start'});
@@ -656,14 +403,14 @@ openDate(today());
 route();
 render();
 
-try {
-  if (!config) config = JSON.parse(localStorage.getItem(configKey) || 'null');
-  if (config) {
-    await connect(config);
-    refreshConnection();
+if (!bundledConfig?.apiKey || !bundledConfig.projectId || !bundledConfig.databaseURL) {
+  loadError = 'Konfigurasi database belum tersedia.';
+  refreshFormStatus();
+  render();
+} else {
+  try {
+    await connect(bundledConfig);
+  } catch (error) {
+    showLoadError(error);
   }
-} catch (error) {
-  showConnection(true);
-  if (config) id('firebase-config').value = JSON.stringify(config, null, 2);
-  connectionMessage(error.code ? firebaseError(error) : 'Konfigurasi atau koneksi Firebase gagal dimuat.', true);
 }
